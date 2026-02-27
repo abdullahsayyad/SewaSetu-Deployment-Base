@@ -1,3 +1,5 @@
+"use server"
+
 export type RiskLevel = "Low" | "Moderate" | "High" | "Critical";
 export type Department = "Electricity" | "Water" | "Roads" | "Sanitation" | "Public Safety" | "Unassigned";
 
@@ -58,7 +60,8 @@ export interface AIAnalysisResult {
 }
 
 export async function analyzeGrievance(text: string): Promise<AIAnalysisResult | null> {
-    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000"
+    // Server-side: reads env var at runtime (no NEXT_PUBLIC_ needed)
+    const backendUrl = process.env.BACKEND_URL || process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000"
     try {
         const response = await fetch(`${backendUrl}/analyze`, {
             method: "POST",
@@ -69,14 +72,14 @@ export async function analyzeGrievance(text: string): Promise<AIAnalysisResult |
         });
 
         if (!response.ok) {
-            console.error("Backend error analyzing grievance");
+            console.error("Backend error analyzing grievance, status:", response.status);
             return null;
         }
 
         const data: AIAnalysisResult = await response.json();
         return data;
     } catch (error) {
-        console.error("Failed to reach Python backend", error);
+        console.error("Failed to reach Python backend at:", backendUrl, error);
         return null;
     }
 }

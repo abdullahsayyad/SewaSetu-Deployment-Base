@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# IDE
+.vscode/
+.idea/
+*.suo
+*.sw?
+
+# Git
+.git/
+.gitignore
+
+# Environment
+.env
+.env.example
+
+# Test outputs
+test_api_out.json
+
+# OS
+.DS_Store
+Thumbs.db

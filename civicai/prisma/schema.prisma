@@ -1,0 +1,185 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model attachments {
+  id           String     @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  complaint_id String     @db.Uuid
+  uploaded_by  String     @db.Uuid
+  file_url     String
+  file_type    String     @db.VarChar(50)
+  created_at   DateTime?  @default(now()) @db.Timestamptz(6)
+  complaints   complaints @relation(fields: [complaint_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users        users      @relation(fields: [uploaded_by], references: [id], onUpdate: NoAction)
+}
+
+model complaint_ai_analysis {
+  id                 String     @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  complaint_id       String     @db.Uuid
+  category           String     @db.VarChar(100)
+  sub_category       String?    @db.VarChar(100)
+  sentiment_score    Decimal    @db.Decimal(3, 2)
+  risk_score         Int
+  escalation_score   Int
+  extracted_keywords Json?
+  ai_summary         String
+  suggested_action   String?
+  created_at         DateTime?  @default(now()) @db.Timestamptz(6)
+  complaints         complaints @relation(fields: [complaint_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+model complaint_status_history {
+  id           String      @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  complaint_id String      @db.Uuid
+  status       status_enum
+  changed_by   String      @db.Uuid
+  remarks      String?
+  created_at   DateTime?   @default(now()) @db.Timestamptz(6)
+  users        users       @relation(fields: [changed_by], references: [id], onUpdate: NoAction)
+  complaints   complaints  @relation(fields: [complaint_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([complaint_id], map: "idx_history_complaint_id")
+}
+
+model complaint_upvotes {
+  id           String     @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  complaint_id String     @db.Uuid
+  user_id      String     @db.Uuid
+  created_at   DateTime?  @default(now()) @db.Timestamptz(6)
+  complaints   complaints @relation(fields: [complaint_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users        users      @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([complaint_id, user_id])
+  @@index([complaint_id], map: "idx_upvotes_complaint_id")
+}
+
+model complaints {
+  id                       String                     @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  citizen_id               String                     @db.Uuid
+  department_id            String                     @db.Uuid
+  title                    String                     @db.VarChar(255)
+  description              String
+  latitude                 Decimal                    @db.Decimal(10, 8)
+  longitude                Decimal                    @db.Decimal(11, 8)
+  priority_level           priority_enum              @default(medium)
+  status                   status_enum                @default(pending)
+  escalation_level         Int                        @default(0)
+  upvote_count             Int                        @default(0)
+  is_duplicate             Boolean                    @default(false)
+  cluster_id               String?                    @db.Uuid
+  created_at               DateTime?                  @default(now()) @db.Timestamptz(6)
+  updated_at               DateTime?                  @default(now()) @db.Timestamptz(6)
+  attachments              attachments[]
+  complaint_ai_analysis    complaint_ai_analysis[]
+  complaint_status_history complaint_status_history[]
+  complaint_upvotes        complaint_upvotes[]
+  users                    users                      @relation(fields: [citizen_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  duplicate_clusters       duplicate_clusters?        @relation(fields: [cluster_id], references: [id], onUpdate: NoAction)
+  departments              departments                @relation(fields: [department_id], references: [id], onUpdate: NoAction)
+  escalations              escalations[]
+  notifications            notifications[]
+  resolution_reports       resolution_reports[]
+
+  @@index([cluster_id], map: "idx_complaints_cluster_id")
+  @@index([department_id], map: "idx_complaints_department_id")
+  @@index([latitude, longitude], map: "idx_complaints_location")
+  @@index([status], map: "idx_complaints_status")
+  @@index([upvote_count(sort: Desc)], map: "idx_complaints_upvote_count")
+}
+
+model departments {
+  id          String       @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  name        String       @db.VarChar(255)
+  description String?
+  sla_hours   Int          @default(48)
+  created_at  DateTime?    @default(now()) @db.Timestamptz(6)
+  complaints  complaints[]
+  users       users[]
+}
+
+model duplicate_clusters {
+  id         String       @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  category   String       @db.VarChar(100)
+  latitude   Decimal      @db.Decimal(10, 8)
+  longitude  Decimal      @db.Decimal(11, 8)
+  created_at DateTime?    @default(now()) @db.Timestamptz(6)
+  complaints complaints[]
+}
+
+model escalations {
+  id               String     @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  complaint_id     String     @db.Uuid
+  escalation_level Int
+  reason           String
+  created_at       DateTime?  @default(now()) @db.Timestamptz(6)
+  complaints       complaints @relation(fields: [complaint_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+model notifications {
+  id           String      @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  user_id      String      @db.Uuid
+  complaint_id String?     @db.Uuid
+  message      String
+  is_read      Boolean     @default(false)
+  created_at   DateTime?   @default(now()) @db.Timestamptz(6)
+  complaints   complaints? @relation(fields: [complaint_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users        users       @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([user_id], map: "idx_notifications_user_id")
+}
+
+model resolution_reports {
+  id               String     @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  complaint_id     String     @db.Uuid
+  resolved_by      String     @db.Uuid
+  resolution_notes String
+  cost_estimate    Decimal?   @db.Decimal(12, 2)
+  resolved_at      DateTime?  @default(now()) @db.Timestamptz(6)
+  complaints       complaints @relation(fields: [complaint_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users            users      @relation(fields: [resolved_by], references: [id], onUpdate: NoAction)
+}
+
+model users {
+  id                       String                     @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  full_name                String                     @db.VarChar(255)
+  email                    String                     @unique @db.VarChar(255)
+  password_hash            String                     @db.VarChar(255)
+  role                     user_role
+  department_id            String?                    @db.Uuid
+  phone                    String?                    @db.VarChar(20)
+  created_at               DateTime?                  @default(now()) @db.Timestamptz(6)
+  updated_at               DateTime?                  @default(now()) @db.Timestamptz(6)
+  attachments              attachments[]
+  complaint_status_history complaint_status_history[]
+  complaint_upvotes        complaint_upvotes[]
+  complaints               complaints[]
+  notifications            notifications[]
+  resolution_reports       resolution_reports[]
+  departments              departments?               @relation(fields: [department_id], references: [id], onUpdate: NoAction)
+
+  @@index([department_id], map: "idx_users_department_id")
+}
+
+enum priority_enum {
+  low
+  medium
+  high
+  critical
+}
+
+enum status_enum {
+  pending
+  in_progress
+  escalated
+  resolved
+}
+
+enum user_role {
+  citizen
+  officer
+}

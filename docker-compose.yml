@@ -1,0 +1,71 @@
+# ───────────────────────────────────────────────────────────
+# CivicAI Platform — Docker Compose
+# Full-stack: PostgreSQL + FastAPI Backend + Next.js Frontend
+# ───────────────────────────────────────────────────────────
+# Usage:
+#   docker compose up --build        (first run / rebuild)
+#   docker compose up -d             (detached mode)
+#   docker compose down              (stop all)
+#   docker compose logs -f backend   (tail backend logs)
+# ───────────────────────────────────────────────────────────
+
+services:
+  # ─── PostgreSQL Database ────────────────────────────────
+  db:
+    image: postgres:15-alpine
+    container_name: sewasetu_postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-civicai_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-secure_password_123}
+      POSTGRES_DB: ${POSTGRES_DB:-civicai_db}
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./civicai/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
+      - ./civicai/seed.sql:/docker-entrypoint-initdb.d/02-seed.sql
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-civicai_user} -d ${POSTGRES_DB:-civicai_db}" ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  # ─── FastAPI AI Backend ─────────────────────────────────
+  backend:
+    build:
+      context: ./backend/SSH_backend_final
+      dockerfile: Dockerfile
+    container_name: sewasetu_backend
+    environment:
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test: [ "CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')" ]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+
+  # ─── Next.js Frontend ──────────────────────────────────
+  frontend:
+    build:
+      context: ./civicai
+      dockerfile: Dockerfile
+      args:
+        DATABASE_URL: postgresql://${POSTGRES_USER:-civicai_user}:${POSTGRES_PASSWORD:-secure_password_123}@db:5432/${POSTGRES_DB:-civicai_db}?schema=public
+    container_name: sewasetu_frontend
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-civicai_user}:${POSTGRES_PASSWORD:-secure_password_123}@db:5432/${POSTGRES_DB:-civicai_db}?schema=public
+      NEXT_PUBLIC_BACKEND_URL: http://backend:8000
+    ports:
+      - "3000:3000"
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  postgres_data:

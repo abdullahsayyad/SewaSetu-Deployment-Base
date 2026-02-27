@@ -56,10 +56,11 @@ services:
       dockerfile: Dockerfile
       args:
         DATABASE_URL: postgresql://${POSTGRES_USER:-civicai_user}:${POSTGRES_PASSWORD:-secure_password_123}@db:5432/${POSTGRES_DB:-civicai_db}?schema=public
+        NEXT_PUBLIC_BACKEND_URL: ${NEXT_PUBLIC_BACKEND_URL:-http://backend:8000}
     container_name: sewasetu_frontend
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-civicai_user}:${POSTGRES_PASSWORD:-secure_password_123}@db:5432/${POSTGRES_DB:-civicai_db}?schema=public
-      NEXT_PUBLIC_BACKEND_URL: http://backend:8000
+      NEXT_PUBLIC_BACKEND_URL: ${NEXT_PUBLIC_BACKEND_URL:-http://backend:8000}
     ports:
       - "3000:3000"
     depends_on:

@@ -20,9 +20,11 @@ FROM node:20-alpine AS builder
 RUN apk add --no-cache libc6-compat openssl
 WORKDIR /app
 
-# Accept DATABASE_URL at build time for Prisma generate
+# Accept build-time variables for Prisma and backend connection
 ARG DATABASE_URL
 ENV DATABASE_URL=${DATABASE_URL}
+ARG NEXT_PUBLIC_BACKEND_URL
+ENV NEXT_PUBLIC_BACKEND_URL=${NEXT_PUBLIC_BACKEND_URL}
 
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .

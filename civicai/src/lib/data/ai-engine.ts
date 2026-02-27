@@ -58,8 +58,9 @@ export interface AIAnalysisResult {
 }
 
 export async function analyzeGrievance(text: string): Promise<AIAnalysisResult | null> {
+    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000"
     try {
-        const response = await fetch("http://localhost:8000/analyze", {
+        const response = await fetch(`${backendUrl}/analyze`, {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
